@@ -63,42 +63,18 @@ class SettingsDialog(wx.Dialog):
         account_panel = wx.Panel(notebook)
         account_vbox = wx.BoxSizer(wx.VERTICAL)
 
-        creds_box = wx.StaticBox(account_panel, label="API Credentials")
-        creds_sizer = wx.StaticBoxSizer(creds_box, wx.VERTICAL)
-
-        grid = wx.FlexGridSizer(rows=2, cols=2, vgap=8, hgap=8)
-        grid.AddGrowableCol(1, 1)
-
-        grid.Add(wx.StaticText(account_panel, label="App Key:"), 0, wx.ALIGN_CENTER_VERTICAL)
-        self.key_input = wx.TextCtrl(account_panel, value=self.app_key or "", style=wx.TE_PASSWORD)
-        self.key_input.SetHint("App Key")
-        grid.Add(self.key_input, 1, wx.EXPAND)
-
-        grid.Add(wx.StaticText(account_panel, label="App Secret:"), 0, wx.ALIGN_CENTER_VERTICAL)
-        self.secret_input = wx.TextCtrl(account_panel, value=self.app_secret or "", style=wx.TE_PASSWORD)
-        self.secret_input.SetHint("App Secret")
-        grid.Add(self.secret_input, 1, wx.EXPAND)
-
-        creds_sizer.Add(grid, 0, wx.EXPAND | wx.ALL, 10)
-
-        save_creds_btn = wx.Button(account_panel, label="Save Credentials")
-        save_creds_btn.Bind(wx.EVT_BUTTON, self.on_save_creds)
-        creds_sizer.Add(save_creds_btn, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
-
-        account_vbox.Add(creds_sizer, 0, wx.EXPAND | wx.ALL, 10)
-
         auth_box = wx.StaticBox(account_panel, label="Account Connection")
         auth_sizer = wx.StaticBoxSizer(auth_box, wx.VERTICAL)
 
-        self.status_text = wx.StaticText(account_panel, label="")
-        auth_sizer.Add(self.status_text, 0, wx.ALL, 10)
+        self.status_text = wx.TextCtrl(account_panel, style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_WORDWRAP)
+        self.status_text.SetMinSize((-1, 70))
+        auth_sizer.Add(self.status_text, 0, wx.EXPAND | wx.ALL, 10)
 
-        login_btn = wx.Button(account_panel, label="Connect to Dropbox")
-        login_btn.Bind(wx.EVT_BUTTON, self.on_login)
-        auth_sizer.Add(login_btn, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+        self.login_btn = wx.Button(account_panel, label="Connect (Recommended)…")
+        self.login_btn.Bind(wx.EVT_BUTTON, self.on_login_recommended)
+        auth_sizer.Add(self.login_btn, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
         if self.refresh_token:
-            login_btn.SetLabel("Connected")
-            login_btn.Enable(False)
+            self.login_btn.SetLabel("Replace connection…")
 
         account_vbox.Add(auth_sizer, 0, wx.EXPAND | wx.ALL, 10)
 
@@ -112,6 +88,53 @@ class SettingsDialog(wx.Dialog):
 
         account_panel.SetSizer(account_vbox)
         notebook.AddPage(account_panel, "Account")
+
+        advanced_panel = wx.Panel(notebook)
+        advanced_vbox = wx.BoxSizer(wx.VERTICAL)
+
+        creds_box = wx.StaticBox(advanced_panel, label="API Credentials (Advanced)")
+        creds_sizer = wx.StaticBoxSizer(creds_box, wx.VERTICAL)
+
+        grid = wx.FlexGridSizer(rows=2, cols=2, vgap=8, hgap=8)
+        grid.AddGrowableCol(1, 1)
+
+        grid.Add(wx.StaticText(advanced_panel, label="App Key:"), 0, wx.ALIGN_CENTER_VERTICAL)
+        self.key_input = wx.TextCtrl(advanced_panel, value=self.app_key or "", style=wx.TE_PASSWORD)
+        self.key_input.SetHint("App Key")
+        grid.Add(self.key_input, 1, wx.EXPAND)
+
+        grid.Add(wx.StaticText(advanced_panel, label="App Secret:"), 0, wx.ALIGN_CENTER_VERTICAL)
+        self.secret_input = wx.TextCtrl(advanced_panel, value=self.app_secret or "", style=wx.TE_PASSWORD)
+        self.secret_input.SetHint("App Secret")
+        grid.Add(self.secret_input, 1, wx.EXPAND)
+
+        creds_sizer.Add(grid, 0, wx.EXPAND | wx.ALL, 10)
+
+        save_creds_btn = wx.Button(advanced_panel, label="Save Credentials")
+        save_creds_btn.Bind(wx.EVT_BUTTON, self.on_save_creds)
+        creds_sizer.Add(save_creds_btn, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        advanced_vbox.Add(creds_sizer, 0, wx.EXPAND | wx.ALL, 10)
+
+        adv_auth_box = wx.StaticBox(advanced_panel, label="Manual OAuth (Advanced)")
+        adv_auth_sizer = wx.StaticBoxSizer(adv_auth_box, wx.VERTICAL)
+        adv_help = wx.StaticText(
+            advanced_panel,
+            label=(
+                "This flow requires an App Key + App Secret and uses a copy/paste authorization code.\n"
+                "Most users should use the recommended connection on the Account tab."
+            ),
+        )
+        adv_auth_sizer.Add(adv_help, 0, wx.ALL, 10)
+
+        self.adv_login_btn = wx.Button(advanced_panel, label="Connect (Manual OAuth)")
+        self.adv_login_btn.Bind(wx.EVT_BUTTON, self.on_login_manual)
+        adv_auth_sizer.Add(self.adv_login_btn, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        advanced_vbox.Add(adv_auth_sizer, 0, wx.EXPAND | wx.ALL, 10)
+
+        advanced_panel.SetSizer(advanced_vbox)
+        notebook.AddPage(advanced_panel, "Advanced")
 
         # --- TAB: PLAYLIST ---
         playlist_panel = wx.Panel(notebook)
@@ -189,8 +212,9 @@ class SettingsDialog(wx.Dialog):
 
     def _refresh_status_text(self):
         if self.refresh_token:
-            self.status_text.SetLabel("Connected to Dropbox")
-            self.status_text.SetForegroundColour(wx.Colour(46, 125, 50))
+            self.status_text.SetValue("Connected to Dropbox")
+        else:
+            self.status_text.SetValue("Not connected")
 
     def get_playlist_values(self):
         raw = self.extensions_input.GetValue() if hasattr(self, 'extensions_input') else ""
@@ -220,6 +244,26 @@ class SettingsDialog(wx.Dialog):
         self.app_key = key
         self.app_secret = secret
         wx.MessageBox("Credentials saved to OS Vault.", "Saved", wx.OK | wx.ICON_INFORMATION)
+
+    def on_login_recommended(self, event):
+        if hasattr(self.parent, 'on_run_setup_wizard'):
+            try:
+                self.status_text.SetValue("Opening Setup Wizard...")
+                self.parent.on_run_setup_wizard(None)
+                self.refresh_token = keyring.get_password(SERVICE_NAME, "refresh_token")
+                self.app_key = keyring.get_password(SERVICE_NAME, "app_key")
+                self.app_secret = keyring.get_password(SERVICE_NAME, "app_secret")
+            except Exception as e:
+                self.status_text.SetValue(f"Setup Wizard failed: {e}")
+
+        self._refresh_status_text()
+        if self.refresh_token:
+            self.login_btn.SetLabel("Replace connection…")
+        else:
+            self.login_btn.SetLabel("Connect (Recommended)…")
+
+    def on_login_manual(self, event):
+        self.on_login(event)
 
     def on_login(self, event):
         """Authenticate with Dropbox"""

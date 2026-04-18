@@ -1520,7 +1520,11 @@ class SmartStreamer(wx.Frame):
 
     def load_data(self, f, default):
         if os.path.exists(f):
-            with open(f, 'r', encoding='utf-8') as file: return json.load(file)
+            try:
+                with open(f, 'r', encoding='utf-8') as file:
+                    return json.load(file)
+            except (json.JSONDecodeError, IOError):
+                return default
         return default
 
     def save_data(self, f, data):

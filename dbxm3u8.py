@@ -677,10 +677,29 @@ class SmartStreamer(wx.Frame):
         )
         wx.MessageBox(msg, "Debug: Connection Status", wx.OK | wx.ICON_INFORMATION)
 
+    def require_connection(self, context_label: str = "This action") -> bool:
+        if self.has_auth() and self.dbx:
+            return True
+
+        dlg = wx.MessageDialog(
+            self,
+            f"{context_label} requires a Dropbox connection.\n\nRun Setup Wizard now?",
+            "Not Connected",
+            wx.YES_NO | wx.YES_DEFAULT | wx.ICON_INFORMATION,
+        )
+        res = dlg.ShowModal()
+        dlg.Destroy()
+        if res != wx.ID_YES:
+            return False
+
+        self.on_run_setup_wizard(None)
+        return bool(self.has_auth() and self.dbx)
+
     # --- LOGIC: EXPLORER & NAVIGATION ---
     def load_dropbox_explorer(self, path):
         if not self.dbx:
             return
+
         self.explorer.Clear()
         self.explorer_paths = []
         self.current_dropbox_path = path

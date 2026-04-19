@@ -31,9 +31,6 @@ Later, I realized other people could benefit from this too, especially if they w
 3. Add one or more Dropbox folders to the profile.
 4. Save a local M3U, or upload it to Dropbox and copy the playlist link.
 
-Here is the updated section with the `uv` installation instructions included. You can replace the existing "Requirements" and "Install" blocks in your `README.md` with this:
-
-```markdown
 ## Requirements
 
 - [uv](https://docs.astral.sh/uv/) (Python package manager)
@@ -153,4 +150,3 @@ The app writes state next to the script/exe in `data/`:
 ### Debug mode
 
 Set `DBXM3U8_DEBUG` to `1` / `true` / `yes`.
-```

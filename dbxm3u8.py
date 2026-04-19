@@ -397,6 +397,8 @@ class FolderPreviewDialog(wx.Dialog):
         if not self.current_path:
             return
         parent = os.path.dirname(self.current_path)
+        if parent == "/":
+            parent = ""
         if parent == self.current_path:
             return
         self.current_path = parent
@@ -1822,7 +1824,10 @@ class SmartStreamer(wx.Frame):
         self.playlist_list.SetFocus()
     
     def on_go_back(self, event): 
-        self.load_dropbox_explorer(os.path.dirname(self.current_dropbox_path))
+        parent = os.path.dirname(self.current_dropbox_path)
+        if parent == "/":
+            parent = ""
+        self.load_dropbox_explorer(parent)
         self.explorer.SetFocus()
     
     def on_enter_folder(self, event):

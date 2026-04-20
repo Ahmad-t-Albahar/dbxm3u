@@ -8,7 +8,15 @@ from typing import List, Tuple, Callable, Optional
 from link_utils import get_or_create_shared_link as _get_or_create_shared_link, to_direct_stream_url
 
 class AsyncM3UProcessor:
-    def __init__(self, dbx: dropbox.Dropbox, progress_callback: Optional[Callable] = None, series_mode: bool = False, series_logo: str = "", extensions: Optional[List[str]] = None):
+    def __init__(
+        self,
+        dbx: dropbox.Dropbox,
+        progress_callback: Optional[Callable] = None,
+        series_mode: bool = False,
+        series_logo: str = "",
+        extensions: Optional[List[str]] = None,
+        cancel_check: Optional[Callable[[], bool]] = None,
+    ):
         """
         Initialize async processor
         
@@ -21,9 +29,25 @@ class AsyncM3UProcessor:
         self.dbx = dbx
         self.progress_callback = progress_callback
         self.cancelled = False
+        self.cancel_check = cancel_check
         self.series_mode = series_mode
         self.series_logo = series_logo
         self.extensions = [e.lower() for e in (extensions or []) if isinstance(e, str) and e.strip()]
+
+    def _refresh_cancelled(self) -> bool:
+        """Refresh and return cancellation state.
+
+        Cancellation can be requested either via an explicit call to set_cancelled(),
+        or via a polling callback (e.g. UI cancel button).
+        """
+        if not self.cancelled and self.cancel_check:
+            try:
+                if bool(self.cancel_check()):
+                    self.cancelled = True
+            except Exception:
+                # If cancel_check fails, do not crash processing.
+                pass
+        return self.cancelled
         
     def set_cancelled(self):
         """Signal cancellation from external thread"""
@@ -46,7 +70,7 @@ class AsyncM3UProcessor:
             self.progress_callback('log', "Starting file collection...", 'info')
         
         for root_path in folder_paths:
-            if self.cancelled:
+            if self._refresh_cancelled():
                 break
                 
             try:
@@ -69,7 +93,7 @@ class AsyncM3UProcessor:
                 
                 # Handle pagination
                 while res.has_more:
-                    if self.cancelled:
+                    if self._refresh_cancelled():
                         break
                     res = await loop.run_in_executor(None, self.dbx.files_list_folder_continue, res.cursor)
                     all_files.extend(collect_entries(res.entries))
@@ -152,7 +176,7 @@ class AsyncM3UProcessor:
         batch_size = max_concurrent
         
         for i in range(0, len(files), batch_size):
-            if self.cancelled:
+            if self._refresh_cancelled():
                 if self.progress_callback:
                     self.progress_callback('log', "Processing cancelled", 'warning')
                 break
@@ -195,6 +219,8 @@ class AsyncM3UProcessor:
             M3U line string or None if failed
         """
         try:
+            if self._refresh_cancelled():
+                return None
             if self.progress_callback:
                 self.progress_callback('update_progress', index, total, entry.name)
                 self.progress_callback('log', f"Processing: {entry.name}", 'info')
@@ -212,6 +238,9 @@ class AsyncM3UProcessor:
             
             # Get or create shared link
             link = await self.get_or_create_shared_link(entry.path_lower, semaphore)
+
+            if self._refresh_cancelled():
+                return None
             
             if not link:
                 if self.progress_callback:
@@ -344,7 +373,8 @@ async def run_async_processing(dbx: dropbox.Dropbox, folder_paths: List[str],
                                max_concurrent: int = 5,
                                series_mode: bool = False,
                                series_logo: str = "",
-                               extensions: Optional[List[str]] = None) -> Tuple[List[str], dict]:
+                               extensions: Optional[List[str]] = None,
+                               cancel_check: Optional[Callable[[], bool]] = None) -> Tuple[List[str], dict]:
     """
     Main entry point for async processing
     
@@ -359,7 +389,14 @@ async def run_async_processing(dbx: dropbox.Dropbox, folder_paths: List[str],
     Returns:
         Tuple of (m3u_lines, stats_dict)
     """
-    processor = AsyncM3UProcessor(dbx, progress_callback, series_mode, series_logo, extensions=extensions)
+    processor = AsyncM3UProcessor(
+        dbx,
+        progress_callback,
+        series_mode,
+        series_logo,
+        extensions=extensions,
+        cancel_check=cancel_check,
+    )
     
     # Collect all files
     files = await processor.collect_files(folder_paths)

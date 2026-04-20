@@ -758,9 +758,6 @@ class SmartStreamer(wx.Frame):
                     added_count += 1
             if added_count > 0:
                 self.save_data(PROFILES_FILE, self.profiles)
-                wx.MessageBox(f"{added_count} folder(s) added to profile.", "Added")
-
-        self.playlist_list.SetFocus()
 
     # --- LOGIC: ASYNC SMART SYNC ENGINE ---
     def on_smart_sync(self, event):
@@ -808,11 +805,16 @@ class SmartStreamer(wx.Frame):
                         max_concurrent=5,
                         series_mode=self.series_mode,
                         series_logo=self.series_logo,
-                        extensions=self.media_extensions
+                        extensions=self.media_extensions,
+                        cancel_check=progress_win.is_cancelled,
                     )
                 )
 
                 loop.close()
+
+                if progress_win.is_cancelled():
+                    wx.CallAfter(progress_win.mark_cancelled)
+                    return
 
                 # Upload M3U file
                 filename = f"{self.current_profile.lower().replace(' ', '_')}.m3u"
@@ -897,11 +899,16 @@ class SmartStreamer(wx.Frame):
                         max_concurrent=5,
                         series_mode=self.series_mode,
                         series_logo=self.series_logo,
-                        extensions=self.media_extensions
+                        extensions=self.media_extensions,
+                        cancel_check=progress_win.is_cancelled,
                     )
                 )
 
                 loop.close()
+
+                if progress_win.is_cancelled():
+                    wx.CallAfter(progress_win.mark_cancelled)
+                    return
 
                 if stats['processed'] == 0:
                     progress_callback('log', "No files could be processed", 'error')
@@ -954,92 +961,7 @@ class SmartStreamer(wx.Frame):
         thread = threading.Thread(target=run_async_thread, daemon=True)
         thread.start()
 
-    # --- LOGIC: ADD TO EXISTING M3U ---
-    def on_augment_m3u(self, event):
-        """Load existing M3U and add new folders to it"""
-        if not self.require_connection("Add to Existing M3U"):
-            return
-        import re
-
-        # Step 1: Load existing M3U file
-        dlg = wx.FileDialog(
-            self,
-            "Select M3U file to add folders to",
-            wildcard="M3U Playlist (*.m3u)|*.m3u",
-            style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST
-        )
-
-        if dlg.ShowModal() != wx.ID_OK:
-            dlg.Destroy()
-            return
-
-        m3u_file = dlg.GetPath()
-        dlg.Destroy()
-
-        # Parse existing M3U
-        try:
-            with open(m3u_file, 'r', encoding='utf-8') as f:
-                lines = f.readlines()
-
-            if not lines or not lines[0].strip().startswith('#EXTM3U'):
-                wx.MessageBox("Not a valid M3U file", "Error", wx.OK | wx.ICON_ERROR)
-                return
-
-            # Extract existing entries
-            existing_entries = []
-            existing_categories = set()
-            i = 1
-
-            while i < len(lines):
-                line = lines[i].strip()
-                if line.startswith('#EXTINF'):
-                    # Extract category
-                    match = re.search(r'group-title="([^"]+)"', line)
-                    if match:
-                        category = match.group(1)
-                        existing_categories.add(category)
-
-                    if i + 1 < len(lines):
-                        url_line = lines[i + 1].strip()
-                        existing_entries.append({
-                            'extinf': line,
-                            'url': url_line
-                        })
-                        i += 2
-                    else:
-                        i += 1
-                else:
-                    i += 1
-
-            self.loaded_m3u_file = m3u_file
-            self.loaded_m3u_entries = existing_entries
-
-            # Show info and ask user to select folders
-            info_msg = (
-                f"Loaded: {os.path.basename(m3u_file)}\n"
-                f"Categories: {len(existing_categories)}\n"
-                f"Total files: {len(existing_entries)}\n\n"
-                f"Now select folders from the Dropbox Explorer on the left.\n"
-                f"Use Ctrl+Space or right-click to add folders to the list on the right.\n"
-                f"Then click this button again to process and merge."
-            )
-            wx.MessageBox(info_msg, "M3U Loaded - Select New Folders", wx.OK | wx.ICON_INFORMATION)
-
-            # Clear and prepare for folder selection
-            self.augment_folders = []
-            self.playlist_list.Clear()
-            self.playlist_list.Append(f"[Existing M3U: {len(existing_entries)} files]")
-            for cat in sorted(existing_categories):
-                self.playlist_list.Append(cat)
-
-            # Change button to "Process & Merge"
-            self.augment_btn.SetLabel("Process & Merge New Folders")
-            self.augment_btn.Unbind(wx.EVT_BUTTON)
-            self.augment_btn.Bind(wx.EVT_BUTTON, self.on_process_and_merge)
-
-        except Exception as e:
-            wx.MessageBox(f"Error loading M3U file:\n{e}", "Error", wx.OK | wx.ICON_ERROR)
-
+    # --- LOGIC: UPDATE EXISTING M3U ---
     def on_update_existing_m3u(self, event):
         """Update an existing M3U by rescanning the current profile folders and merging new items."""
         if not self.require_connection("Update Existing M3U"):
@@ -1186,10 +1108,16 @@ class SmartStreamer(wx.Frame):
                         max_concurrent=5,
                         series_mode=self.series_mode,
                         series_logo=self.series_logo,
-                        extensions=self.media_extensions
+                        extensions=self.media_extensions,
+                        cancel_check=progress_win.is_cancelled,
                     )
                 )
+
                 loop.close()
+
+                if progress_win.is_cancelled():
+                    wx.CallAfter(progress_win.mark_cancelled)
+                    return
 
                 existing_urls = {e.get('url', '').strip() for e in existing_entries if e.get('url')}
 
@@ -1316,6 +1244,92 @@ class SmartStreamer(wx.Frame):
         thread = threading.Thread(target=run_async_thread, daemon=True)
         thread.start()
 
+    # --- LOGIC: ADD TO EXISTING M3U ---
+    def on_augment_m3u(self, event):
+        """Load existing M3U and add new folders to it"""
+        if not self.require_connection("Add to Existing M3U"):
+            return
+        import re
+
+        # Step 1: Load existing M3U file
+        dlg = wx.FileDialog(
+            self,
+            "Select M3U file to add folders to",
+            wildcard="M3U Playlist (*.m3u)|*.m3u",
+            style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST
+        )
+
+        if dlg.ShowModal() != wx.ID_OK:
+            dlg.Destroy()
+            return
+
+        m3u_file = dlg.GetPath()
+        dlg.Destroy()
+
+        # Parse existing M3U
+        try:
+            with open(m3u_file, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+
+            if not lines or not lines[0].strip().startswith('#EXTM3U'):
+                wx.MessageBox("Not a valid M3U file", "Error", wx.OK | wx.ICON_ERROR)
+                return
+
+            # Extract existing entries
+            existing_entries = []
+            existing_categories = set()
+            i = 1
+
+            while i < len(lines):
+                line = lines[i].strip()
+                if line.startswith('#EXTINF'):
+                    # Extract category
+                    match = re.search(r'group-title="([^"]+)"', line)
+                    if match:
+                        category = match.group(1)
+                        existing_categories.add(category)
+
+                    if i + 1 < len(lines):
+                        url_line = lines[i + 1].strip()
+                        existing_entries.append({
+                            'extinf': line,
+                            'url': url_line
+                        })
+                        i += 2
+                    else:
+                        i += 1
+                else:
+                    i += 1
+
+            self.loaded_m3u_file = m3u_file
+            self.loaded_m3u_entries = existing_entries
+
+            # Show info and ask user to select folders
+            info_msg = (
+                f"Loaded: {os.path.basename(m3u_file)}\n"
+                f"Categories: {len(existing_categories)}\n"
+                f"Total files: {len(existing_entries)}\n\n"
+                f"Now select folders from the Dropbox Explorer on the left.\n"
+                f"Use Ctrl+Space or right-click to add folders to the list on the right.\n"
+                f"Then click this button again to process and merge."
+            )
+            wx.MessageBox(info_msg, "M3U Loaded - Select New Folders", wx.OK | wx.ICON_INFORMATION)
+
+            # Clear and prepare for folder selection
+            self.augment_folders = []
+            self.playlist_list.Clear()
+            self.playlist_list.Append(f"[Existing M3U: {len(existing_entries)} files]")
+            for cat in sorted(existing_categories):
+                self.playlist_list.Append(cat)
+
+            # Change button to "Process & Merge"
+            self.augment_btn.SetLabel("Process & Merge New Folders")
+            self.augment_btn.Unbind(wx.EVT_BUTTON)
+            self.augment_btn.Bind(wx.EVT_BUTTON, self.on_process_and_merge)
+
+        except Exception as e:
+            wx.MessageBox(f"Error loading M3U file:\n{e}", "Error", wx.OK | wx.ICON_ERROR)
+
     def on_process_and_merge(self, event):
         """Process new folders and merge with existing M3U"""
         if not self.require_connection("Process & Merge"):
@@ -1362,11 +1376,16 @@ class SmartStreamer(wx.Frame):
                         max_concurrent=5,
                         series_mode=self.series_mode,
                         series_logo=self.series_logo,
-                        extensions=self.media_extensions
+                        extensions=self.media_extensions,
+                        cancel_check=progress_win.is_cancelled,
                     )
                 )
 
                 loop.close()
+
+                if progress_win.is_cancelled():
+                    wx.CallAfter(progress_win.mark_cancelled)
+                    return
 
                 # Merge with existing entries
                 progress_callback('log', "Merging with existing M3U...", 'info')

@@ -18,6 +18,11 @@ build/
 dist/
 *.spec
 
+# Unpublished tools (WIP)
+category_reorder.py
+m3u_fixer.py
+db renamer.py
+
 # Logs
 *.log
 

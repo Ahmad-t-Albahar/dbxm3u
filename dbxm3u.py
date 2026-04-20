@@ -505,6 +505,11 @@ class SmartStreamer(wx.Frame):
             self.Bind(wx.EVT_MENU, self.on_debug_connection_status, diag_item)
         menubar.Append(tools_menu, "&Tools")
 
+        help_menu = wx.Menu()
+        updates_item = help_menu.Append(wx.ID_ANY, "Check for Updates…", "Open the latest release page")
+        self.Bind(wx.EVT_MENU, self.on_check_for_updates, updates_item)
+        menubar.Append(help_menu, "&Help")
+
         self.SetMenuBar(menubar)
 
         self.panel = wx.Panel(self)
@@ -1014,32 +1019,34 @@ class SmartStreamer(wx.Frame):
             if not lines or not lines[0].strip().startswith('#EXTM3U'):
                 wx.MessageBox("Not a valid M3U file", "Error", wx.OK | wx.ICON_ERROR)
                 return
+
+            # Extract existing entries
+            existing_entries = []
+            i = 1
+
+            while i < len(lines):
+                line = lines[i].strip()
+                if line.startswith('#EXTINF'):
+                    if i + 1 < len(lines):
+                        url_line = lines[i + 1].strip()
+                        existing_entries.append({'extinf': line, 'url': url_line})
+                        i += 2
+                    else:
+                        i += 1
+                else:
+                    i += 1
+
+            self._set_profile_update_setting(self.current_profile, {
+                'last_local_m3u_path': m3u_file,
+                'sort_within_groups': bool(sort_within_groups),
+                'remove_missing': bool(remove_missing),
+            })
+
+            self._start_profile_update(existing_entries, m3u_file, sort_within_groups, remove_missing, save_path_override=None)
+
         except Exception as e:
             wx.MessageBox(f"Error loading M3U file:\n{e}", "Error", wx.OK | wx.ICON_ERROR)
             return
-
-        existing_entries = []
-        i = 1
-        while i < len(lines):
-            line = lines[i].strip()
-            if line.startswith('#EXTINF'):
-                if i + 1 < len(lines):
-                    url_line = lines[i + 1].strip()
-                    if url_line:
-                        existing_entries.append({'extinf': line, 'url': url_line})
-                    i += 2
-                else:
-                    i += 1
-            else:
-                i += 1
-
-        self._set_profile_update_setting(self.current_profile, {
-            'last_local_m3u_path': m3u_file,
-            'sort_within_groups': bool(sort_within_groups),
-            'remove_missing': bool(remove_missing),
-        })
-
-        self._start_profile_update(existing_entries, m3u_file, sort_within_groups, remove_missing, save_path_override=None)
 
     def _start_profile_update(self, existing_entries, m3u_file, sort_within_groups, remove_missing, save_path_override):
         import re
@@ -1540,6 +1547,12 @@ class SmartStreamer(wx.Frame):
 
             self.refresh_ui()
         dlg.Destroy()
+
+    def on_check_for_updates(self, event):
+        try:
+            webbrowser.open("https://github.com/Ahmad-t-Albahar/dbxm3u/releases/latest")
+        except Exception as e:
+            wx.MessageBox(f"Failed to open browser:\n{e}", "Updates", wx.OK | wx.ICON_ERROR)
 
     # --- UTILITIES: DATA & AUTH ---
     def on_copy_link(self, event):

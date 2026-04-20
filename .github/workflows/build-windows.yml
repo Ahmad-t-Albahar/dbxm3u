@@ -6,6 +6,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
@@ -27,8 +30,29 @@ jobs:
         run: |
           uv run pyinstaller --clean dbxm3u.spec
 
+      - name: Package portable zip
+        shell: pwsh
+        run: |
+          if (Test-Path "dist\dbxm3u.exe") {
+            $exePath = "dist\dbxm3u.exe"
+            Copy-Item -Force $exePath "dbxm3u-windows.exe"
+            Compress-Archive -Path "dbxm3u-windows.exe" -DestinationPath "dbxm3u-windows.zip" -Force
+          } else {
+            Compress-Archive -Path "dist\*" -DestinationPath "dbxm3u-windows.zip" -Force
+          }
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: dbxm3u-windows
-          path: dist/
+          path: |
+            dist/
+            dbxm3u-windows.zip
+            dbxm3u-windows.exe
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dbxm3u-windows.zip
+            dbxm3u-windows.exe

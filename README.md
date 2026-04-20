@@ -33,20 +33,36 @@ Later, I realized other people could benefit from this too, especially if they w
 
 ## Requirements
 
-- Python 3.x
+- [uv](https://docs.astral.sh/uv/) (Python package manager)
 - Windows (primary target)
 
 ## Install
 
+**1. Install uv (if you haven't already)**
+
+For Windows (using PowerShell):
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm [https://astral.sh/uv/install.ps1](https://astral.sh/uv/install.ps1) | iex"
+```
+
+*(Alternatively, if you already have Python installed, you can simply run `pip install uv`)*
+
+**2. Install project dependencies**
+
+Once `uv` is installed, navigate to the project directory and run:
 ```bash
-pip install -r requirements.txt
+uv sync
 ```
 
 ## Run
 
+To run the application using `uv`'s managed environment:
+
 ```bash
-python dbxm3u8.py
+uv run dbxm3u8.py
 ```
+
+*(Note: If you configured a script entry point in your `pyproject.toml`, you can also run it via `uv run start`)*
 
 ## Connect Dropbox
 
@@ -103,7 +119,7 @@ This is an actively maintained personal project. It targets Windows first and is
 If you create your own Dropbox API app, add this redirect URI:
 
 ```text
-http://127.0.0.1:53682/oauth2/callback
+[http://127.0.0.1:53682/oauth2/callback](http://127.0.0.1:53682/oauth2/callback)
 ```
 
 You can override the embedded app key with:
@@ -114,8 +130,10 @@ DBXM3U8_APP_KEY
 
 ### Build a Windows .exe (PyInstaller)
 
+To compile the executable using `uv`, run:
+
 ```bash
-pyinstaller --clean dbxm3u8.spec
+uv run pyinstaller --clean dbxm3u8.spec
 ```
 
 Output is in `dist/`.

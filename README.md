@@ -1,4 +1,4 @@
-# dbxm3u8
+# dbxm3u
 
 Windows-first wxPython app that builds and updates **extended M3U playlists** from **Dropbox folders**.
 
@@ -59,7 +59,7 @@ uv sync
 To run the application using `uv`'s managed environment:
 
 ```bash
-uv run dbxm3u8.py
+uv run dbxm3u.py
 ```
 
 *(Note: If you configured a script entry point in your `pyproject.toml`, you can also run it via `uv run start`)*
@@ -133,7 +133,7 @@ DBXM3U8_APP_KEY
 To compile the executable using `uv`, run:
 
 ```bash
-uv run pyinstaller --clean dbxm3u8.spec
+uv run pyinstaller --clean dbxm3u.spec
 ```
 
 Output is in `dist/`.

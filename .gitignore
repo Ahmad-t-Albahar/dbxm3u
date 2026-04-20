@@ -16,7 +16,6 @@ ENV/
 # Build artifacts
 build/
 dist/
-*.spec
 
 # Unpublished tools (WIP)
 category_reorder.py

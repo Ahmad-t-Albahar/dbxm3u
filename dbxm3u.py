@@ -467,16 +467,21 @@ class SmartStreamer(wx.Frame):
         menubar = wx.MenuBar()
 
         file_menu = wx.Menu()
+        save_local_item = file_menu.Append(wx.ID_ANY, "Save Profile Locally\tCtrl+S")
+        self.Bind(wx.EVT_MENU, self.on_save_local, save_local_item)
+
+        settings_item = file_menu.Append(wx.ID_ANY, "&Settings\tAlt+S", "Account and playlist settings")
+        self.Bind(wx.EVT_MENU, self.on_open_settings, settings_item)
+
+        file_menu.AppendSeparator()
         exit_item = file_menu.Append(wx.ID_EXIT, "Exit\tAlt+F4")
         self.Bind(wx.EVT_MENU, lambda _e: self.Close(True), exit_item)
         menubar.Append(file_menu, "&File")
 
         actions_menu = wx.Menu()
-        save_local_item = actions_menu.Append(wx.ID_ANY, "Save Profile Locally\tCtrl+S")
         upload_item = actions_menu.Append(wx.ID_ANY, "Upload to Dropbox Cloud\tCtrl+U")
         actions_menu.AppendSeparator()
         copy_link_item = actions_menu.Append(wx.ID_ANY, "Copy Playlist Link\tCtrl+L")
-        self.Bind(wx.EVT_MENU, self.on_save_local, save_local_item)
         self.Bind(wx.EVT_MENU, self.on_smart_sync, upload_item)
         self.Bind(wx.EVT_MENU, self.on_copy_link, copy_link_item)
         menubar.Append(actions_menu, "&Actions")
@@ -490,20 +495,16 @@ class SmartStreamer(wx.Frame):
         self.Bind(wx.EVT_MENU, self.on_quick_update, quick_update_item)
         preview_existing_item = tools_menu.Append(wx.ID_ANY, "Preview Existing M3U…")
         self.Bind(wx.EVT_MENU, self.on_preview_existing_m3u, preview_existing_item)
-        menubar.Append(tools_menu, "&Tools")
 
-        settings_menu = wx.Menu()
-        settings_item = settings_menu.Append(wx.ID_ANY, "&Settings\tAlt+S", "Account and playlist settings")
-        self.Bind(wx.EVT_MENU, self.on_open_settings, settings_item)
-        wizard_item = settings_menu.Append(wx.ID_ANY, "Run Setup &Wizard…\tAlt+W", "Guided setup")
+        tools_menu.AppendSeparator()
+        wizard_item = tools_menu.Append(wx.ID_ANY, "Run Setup &Wizard…\tAlt+W", "Guided setup")
         self.Bind(wx.EVT_MENU, self.on_run_setup_wizard, wizard_item)
 
         if DEBUG_MODE:
-            settings_menu.AppendSeparator()
-            diag_item = settings_menu.Append(wx.ID_ANY, "Debug: Connection Status…", "Show debug connection info")
+            diag_item = tools_menu.Append(wx.ID_ANY, "Debug: Connection Status…", "Show debug connection info")
             self.Bind(wx.EVT_MENU, self.on_debug_connection_status, diag_item)
+        menubar.Append(tools_menu, "&Tools")
 
-        menubar.Append(settings_menu, "&Settings")
         self.SetMenuBar(menubar)
 
         self.panel = wx.Panel(self)
